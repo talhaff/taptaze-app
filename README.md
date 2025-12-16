@@ -1,4 +1,4 @@
-# Here are your Instructions
+
 # 🍅 Taptaze - Taze Gıda Sipariş Uygulaması
 
 **Taptaze**, kullanıcıların taze sebze ve meyve siparişi verebileceği, modern arayüze sahip, stok kontrollü bir **Full Stack** mobil e-ticaret uygulamasıdır.
