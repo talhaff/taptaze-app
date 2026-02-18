@@ -1,8 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { adminService, orderService, productService, categoryService } from '../../services/api';
 import { Order, Product, Category } from '../../types';
+
+// --- RENK YARDIMCILARI (Yeni Eklenen Kısım) ---
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'Beklemede': return '#F57C00';    // Turuncu
+    case 'Hazırlanıyor': return '#1976D2'; // Mavi
+    case 'Yola Çıktı': return '#7B1FA2';   // Mor
+    case 'Teslim Edildi': return '#388E3C';// Yeşil
+    default: return '#666';
+  }
+};
+
+const getStatusBg = (status: string) => {
+  switch (status) {
+    case 'Beklemede': return '#FFF3E0';
+    case 'Hazırlanıyor': return '#E3F2FD';
+    case 'Yola Çıktı': return '#F3E5F5';
+    case 'Teslim Edildi': return '#E8F5E9';
+    default: return '#eee';
+  }
+};
+// ---------------------------------------------
 
 export default function AdminScreen() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -14,7 +36,6 @@ export default function AdminScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   
-  // İSTATİSTİK STATE'İ (YENİ)
   const [stats, setStats] = useState({
     total_revenue: 0,
     total_orders: 0,
@@ -23,7 +44,7 @@ export default function AdminScreen() {
   });
 
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false); // Aşağı çekip yenileme için
+  const [refreshing, setRefreshing] = useState(false);
 
   // Düzenleme & Ürün Ekleme State'leri
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -39,7 +60,7 @@ export default function AdminScreen() {
       setIsLoggedIn(true);
       loadData();
     } catch (error) {
-      Alert.alert('Hata', 'Giriş başarısız.');
+      Alert.alert('Hata', 'Giriş başarısız. Kullanıcı adı veya şifre yanlış.');
     } finally {
       setLoading(false);
     }
@@ -52,13 +73,13 @@ export default function AdminScreen() {
         orderService.getAll(),
         productService.getAll(),
         categoryService.getAll(),
-        adminService.getStats() // İstatistikleri de çekiyoruz
+        adminService.getStats()
       ]);
       
       setOrders(ordersData);
       setProducts(productsData);
       setCategories(categoriesData);
-      setStats(statsData); // İstatistikleri kaydet
+      setStats(statsData);
 
       if (categoriesData.length > 0 && !newProduct.category_id) {
         setNewProduct(prev => ({ ...prev, category_id: categoriesData[0].id }));
@@ -72,13 +93,11 @@ export default function AdminScreen() {
     }
   };
 
-  // Aşağı çekince yenileme fonksiyonu
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     loadData();
   }, []);
 
-  // --- İŞLEM FONKSİYONLARI (Silme, Güncelleme vb.) ---
   const handleDeleteOrder = async (id: string) => {
     Alert.alert("Siparişi Gizle", "Listeden kaldırmak istiyor musun?", [
       { text: "Vazgeç", style: "cancel" },
@@ -121,7 +140,6 @@ export default function AdminScreen() {
     setEditModalVisible(true);
   };
 
-  // --- GİRİŞ EKRANI ---
   if (!isLoggedIn) {
     return (
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.loginContainer}>
@@ -144,10 +162,8 @@ export default function AdminScreen() {
     );
   }
 
-  // --- PANEL BİLEŞENİ (Dashboard Kartları Buraya Eklendi) ---
   const renderDashboard = () => (
     <View style={styles.dashboardContainer}>
-      {/* 1. Satır */}
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { backgroundColor: '#E8F5E9' }]}>
           <View style={[styles.statIcon, { backgroundColor: '#C8E6C9' }]}>
@@ -158,7 +174,6 @@ export default function AdminScreen() {
             <Text style={[styles.statValue, { color: '#2E7D32' }]}>₺{stats.total_revenue.toFixed(2)}</Text>
           </View>
         </View>
-
         <View style={[styles.statCard, { backgroundColor: '#FFF3E0' }]}>
           <View style={[styles.statIcon, { backgroundColor: '#FFE0B2' }]}>
             <Ionicons name="time-outline" size={24} color="#E65100" />
@@ -169,8 +184,6 @@ export default function AdminScreen() {
           </View>
         </View>
       </View>
-
-      {/* 2. Satır */}
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { backgroundColor: '#E3F2FD' }]}>
           <View style={[styles.statIcon, { backgroundColor: '#BBDEFB' }]}>
@@ -181,7 +194,6 @@ export default function AdminScreen() {
             <Text style={[styles.statValue, { color: '#1565C0' }]}>{stats.total_orders}</Text>
           </View>
         </View>
-
         <View style={[styles.statCard, { backgroundColor: '#F3E5F5' }]}>
           <View style={[styles.statIcon, { backgroundColor: '#E1BEE7' }]}>
             <Ionicons name="cube-outline" size={24} color="#6A1B9A" />
@@ -204,7 +216,6 @@ export default function AdminScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* DASHBOARD KARTLARI (HEADER'IN HEMEN ALTINDA) */}
       {renderDashboard()}
 
       <View style={styles.tabContainer}>
@@ -235,11 +246,12 @@ export default function AdminScreen() {
                   <Text style={styles.orderId}> Sipariş #{item.id.slice(-4)}</Text>
                 </View>
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                  <View style={[styles.statusBadge, { backgroundColor: item.status === 'Beklemede' ? '#FFF3E0' : '#E8F5E9', marginRight: 10 }]}>
-                    <Text style={[styles.statusText, { color: item.status === 'Beklemede' ? '#F57C00' : '#2E7D32' }]}>{item.status}</Text>
+                  {/* RENKLİ STATUS BADGE */}
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusBg(item.status), marginRight: 10 }]}>
+                    <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{item.status}</Text>
                   </View>
                   <TouchableOpacity onPress={() => handleDeleteOrder(item.id)} style={styles.deleteOrderButton}>
-                     <Ionicons name="trash-outline" size={18} color="#FF5252" />
+                      <Ionicons name="trash-outline" size={18} color="#FF5252" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -256,12 +268,34 @@ export default function AdminScreen() {
               </View>
               <View style={styles.orderFooter}>
                 <Text style={styles.totalAmount}>Toplam: ₺{item.total_amount.toFixed(2)}</Text>
+                
+                {/* --- AKILLI BUTONLAR BURADA --- */}
                 {item.status === 'Beklemede' && (
-                  <TouchableOpacity style={styles.actionButton} onPress={() => updateOrderStatus(item.id, 'Teslim Edildi')}>
-                    <Text style={styles.actionButtonText}>Teslim Et</Text>
-                    <Ionicons name="checkmark-circle" size={18} color="white" style={{marginLeft: 5}} />
+                  <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#1976D2' }]} onPress={() => updateOrderStatus(item.id, 'Hazırlanıyor')}>
+                    <Text style={styles.actionButtonText}>Hazırla</Text>
+                    <Ionicons name="restaurant-outline" size={16} color="white" style={{marginLeft: 5}} />
                   </TouchableOpacity>
                 )}
+                {item.status === 'Hazırlanıyor' && (
+                  <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#7B1FA2' }]} onPress={() => updateOrderStatus(item.id, 'Yola Çıktı')}>
+                    <Text style={styles.actionButtonText}>Kuryeye Ver</Text>
+                    <Ionicons name="bicycle-outline" size={16} color="white" style={{marginLeft: 5}} />
+                  </TouchableOpacity>
+                )}
+                {item.status === 'Yola Çıktı' && (
+                  <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#388E3C' }]} onPress={() => updateOrderStatus(item.id, 'Teslim Edildi')}>
+                    <Text style={styles.actionButtonText}>Teslim Et</Text>
+                    <Ionicons name="checkmark-circle-outline" size={16} color="white" style={{marginLeft: 5}} />
+                  </TouchableOpacity>
+                )}
+                {item.status === 'Teslim Edildi' && (
+                   <View style={{flexDirection:'row', alignItems:'center'}}>
+                      <Ionicons name="checkmark-done-circle" size={20} color="#388E3C" />
+                      <Text style={{color:'#388E3C', fontWeight:'bold', marginLeft:5}}>Tamamlandı</Text>
+                   </View>
+                )}
+                {/* ----------------------------- */}
+
               </View>
             </View>
           )}
@@ -310,7 +344,7 @@ export default function AdminScreen() {
         </ScrollView>
       )}
 
-      {/* MODAL */}
+      {/* EDIT MODAL */}
       <Modal visible={editModalVisible} animationType="slide" transparent={true}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -352,15 +386,12 @@ export default function AdminScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F7FA' },
-  // DASHBOARD STİLLERİ (YENİ)
   dashboardContainer: { paddingHorizontal: 15, marginTop: 15 },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   statCard: { flex: 0.48, borderRadius: 16, padding: 15, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, elevation: 2 },
   statIcon: { width: 45, height: 45, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   statLabel: { fontSize: 12, color: '#666', marginBottom: 2, fontWeight: '600' },
   statValue: { fontSize: 18, fontWeight: 'bold' },
-
-  // DİĞER STİLLER AYNI...
   loginContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA', padding: 20 },
   loginCard: { backgroundColor: 'white', width: '100%', padding: 30, borderRadius: 24, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.1, elevation: 5 },
   logoCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
@@ -412,7 +443,7 @@ const styles = StyleSheet.create({
   iconButton: { padding: 8, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   label: { fontWeight: '600', color: '#666', marginBottom: 8, marginLeft: 2 },
   categoryScroll: { flexDirection: 'row', marginBottom: 15 },
-  categoryChip: { paddingHorizontal: 15, paddingVertical: 8, backgroundColor: '#F0F0F0', borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: '#eee' },
+  categoryChip: { paddingHorizontal: 15, paddingVertical: 8, backgroundColor: '#F0F0F0', borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: '#eee' },  
   categoryChipActive: { backgroundColor: '#E8F5E9', borderColor: '#4CAF50' },
   categoryChipText: { color: '#666', fontWeight: '600', fontSize: 13 },
   categoryChipTextActive: { color: '#4CAF50', fontWeight: 'bold' },

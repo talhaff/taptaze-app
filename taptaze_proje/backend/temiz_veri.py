@@ -1,7 +1,7 @@
 import pymongo
 
 # AYARLAR (Burası Doğru)
-IP_ADRESI = "172.20.10.12"
+IP_ADRESI = "192.168.1.161"
 PORT = "8000"
 BASE_URL = f"http://{IP_ADRESI}:{PORT}/static"
 

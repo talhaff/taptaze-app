@@ -11,15 +11,21 @@ from datetime import datetime
 from bson import ObjectId
 import bcrypt
 from fastapi.staticfiles import StaticFiles
-
 # .env dosyasını yükle
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB bağlantısı
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# --- GÜNCELLENEN GÜVENLİ KISIM ---
+# Şifreli linki direkt buraya yazmıyoruz, .env içindeki MONGO_URL'den çekiyoruz
+uri = os.environ.get('MONGO_URL') 
+
+if not uri:
+    raise ValueError("HATA: MONGO_URL bulunamadı! .env dosyasını kontrol et.")
+
+client = AsyncIOMotorClient(uri)
+# .env içindeki DB_NAME'i (TaptazeDB) kullanır
+db = client[os.environ.get('DB_NAME', 'TaptazeDB')] 
+# --------------------------------
 
 app = FastAPI()
 

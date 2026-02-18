@@ -78,7 +78,7 @@ export default function HomeScreen() {
     loadFavorites();
   };
 
-  // --- LİSTE BAŞLIĞI (Sadece Banner ve Kategoriler - Arama Buradan Çıktı) ---
+  // --- LİSTE BAŞLIĞI (Sadece Banner ve Kategoriler) ---
   const renderListHeader = () => (
     <View>
       {/* Kampanya Banner'ı */}
@@ -87,15 +87,27 @@ export default function HomeScreen() {
           <View style={styles.bannerContent}>
             <Text style={styles.bannerTitle}>Haftanın{'\n'}Fırsatları</Text>
             <Text style={styles.bannerSubtitle}>Taze ürünlerde %20'ye varan indirimler!</Text>
-            <TouchableOpacity style={styles.bannerButton}>
+            
+            {/* GÜNCELLENEN KISIM BURASI 👇 */}
+            <TouchableOpacity 
+              style={styles.bannerButton}
+              onPress={() => {
+                // Eğer listede ürün varsa, ilk ürüne git (Demo için harika taktik)
+                if (products.length > 0) {
+                  router.push(`/product/${products[0].id}`);
+                }
+              }}
+            >
               <Text style={styles.bannerButtonText}>İncele</Text>
             </TouchableOpacity>
+            {/* --------------------------- */}
+
           </View>
           <Ionicons name="basket" size={120} color="rgba(255,255,255,0.2)" style={styles.bannerIcon} />
         </View>
       )}
 
-      {/* Kategoriler */}
+      {/* Kategoriler (Aynen kalıyor) */}
       {!search && (
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
