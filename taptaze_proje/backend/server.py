@@ -219,7 +219,7 @@ async def get_admin_stats():
     
 @api_router.post("/admin/login")
 async def admin_login(credentials: AdminLogin):
-    admin = await db.admins.find_one({"username": credentials.username})
+    admin = await db.users.find_one({"username": credentials.username})
     print(f"Admin Login Attempt: {credentials.username} , {credentials.password}" )
     if not admin or not bcrypt.checkpw(credentials.password.encode('utf-8'), admin["password"].encode('utf-8')):
         raise HTTPException(status_code=401, detail="Hatalı giriş")
