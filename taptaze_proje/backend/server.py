@@ -16,12 +16,13 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 import os
-import bcrypt
-import random
 import smtplib
 from email.mime.text import MIMEText
+from flask import Flask, request, jsonify, send_from_directory
+import bcrypt
+import random
 
-
+# Diğer importların (os, dotenv vs.) altında kalsın
 # .env dosyasını yükle
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
