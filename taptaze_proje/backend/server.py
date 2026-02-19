@@ -11,6 +11,17 @@ from datetime import datetime
 from bson import ObjectId
 import bcrypt
 from fastapi.staticfiles import StaticFiles
+import bcrypt
+import random
+import smtplib
+from email.mime.text import MIMEText
+import os
+import bcrypt
+import random
+import smtplib
+from email.mime.text import MIMEText
+
+
 # .env dosyasını yükle
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -33,6 +44,166 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 api_router = APIRouter(prefix="/api")
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.json
+    email = data.get('email')
+    
+    # E-posta daha önce kayıtlı mı kontrolü
+    existing_user = db.users.find_one({"email": email})
+    if existing_user:
+        return jsonify({"error": "Bu e-posta adresi zaten kullanımda."}), 400
+        
+    # Şifreyi şifrele
+    hashed_password = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
+    
+    # 6 haneli rastgele kod üret
+    verification_code = str(random.randint(100000, 999999))
+    
+    # Yeni kullanıcı objesi
+    new_user = {
+        "name": data.get('name'),
+        "surname": data.get('surname'),
+        "email": email,
+        "password": hashed_password.decode('utf-8'), # DB'ye string olarak kaydet
+        "phone": data.get('phone'),
+        "address": data.get('address'),
+        "is_verified": False,
+        "verification_code": verification_code
+    }
+    
+    # Veritabanına kaydet
+    db.users.insert_one(new_user)
+    
+    # Mail gönder
+    send_verification_email(email, verification_code)
+    
+    return jsonify({"message": "Kayıt başarılı! Doğrulama kodu e-postanıza gönderildi."}), 201
+
+def send_verification_email(user_email, code):
+    sender_email = os.getenv("EMAIL_USER")
+    sender_password = os.getenv("EMAIL_PASS")
+    
+    msg = MIMEText(f"Taptaze'ye Hoş Geldin!\n\nHesabını doğrulamak için kodun: {code}\n\nBu kodu kimseyle paylaşma.")
+    msg['Subject'] = 'Taptaze - E-posta Doğrulama Kodu'
+    msg['From'] = f"Taptaze <{sender_email}>"
+    msg['To'] = user_email
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, user_email, msg.as_string())
+        return True
+    except Exception as e:
+        print(f"Mail gönderme hatası: {e}")
+        return False
+
+# E-posta gönderme ayarları (Gmail Uygulama Şifresi kullanman gerekecek)
+def send_verification_email(user_email, code):
+    sender_email = "SENIN_EMAILIN@gmail.com"
+    sender_password = "SENIN_UYGULAMA_SIFREN" # Gmail'den alınan 16 haneli kod
+    
+    msg = MIMEText(f"Taptaze'ye Hoş Geldin! Doğrulama kodun: {code}")
+    msg['Subject'] = 'Taptaze Giriş Doğrulama'
+    msg['From'] = sender_email
+    msg['To'] = user_email
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, user_email, msg.as_string())
+        return True
+    except Exception as e:
+        print(f"Mail hatası: {e}")
+        return False
+
+# Kayıt Endpoint'i (Örnek Taslak)
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.json
+    # Şifreyi şifrele
+    hashed_password = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
+    
+    verification_code = str(random.randint(100000, 999999))
+    
+    new_user = {
+        "name": data['name'],
+        "surname": data['surname'],
+        "email": data['email'],
+        "password": hashed_password,
+        "phone": data['phone'],
+        "address": data['address'],
+        "is_verified": False,
+        "verification_code": verification_code
+    }
+    
+    # MongoDB'ye kaydet (Burada senin koleksiyon ismin gelecek)
+    db.users.insert_one(new_user)
+    
+    # Mail gönder
+    send_verification_email(data['email'], verification_code)
+    
+    return {"message": "Doğrulama kodu gönderildi!"}, 200
+
+@app.route('/api/verify', methods=['POST'])
+def verify_email():
+    data = request.json
+    email = data.get('email')
+    code = data.get('code')
+
+    # Kullanıcıyı veritabanında bul
+    user = db.users.find_one({"email": email})
+
+    if not user:
+        return jsonify({"error": "Kullanıcı bulunamadı."}), 404
+
+    if user.get("is_verified"):
+        return jsonify({"message": "Hesabınız zaten doğrulanmış."}), 400
+
+    # Kod eşleşiyor mu kontrol et
+    if user.get("verification_code") == str(code):
+        # Eşleşiyorsa hesabı onayla ve güvenlik için kodu veritabanından sil
+        db.users.update_one(
+            {"email": email},
+            {"$set": {"is_verified": True}, "$unset": {"verification_code": ""}}
+        )
+        return jsonify({"message": "E-posta başarıyla doğrulandı! Artık giriş yapabilirsiniz."}), 200
+    else:
+        return jsonify({"error": "Doğrulama kodu hatalı."}), 400
+    
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    email = data.get('email') 
+    password = data.get('password')
+
+    # Veritabanında kullanıcıyı ara
+    user = db.users.find_one({"email": email})
+
+    if not user:
+        return jsonify({"error": "Bu e-posta ile kayıtlı kullanıcı bulunamadı."}), 404
+
+    # Kullanıcı mailini doğrulamış mı? (Güvenlik kilidi)
+    if not user.get("is_verified"):
+        return jsonify({"error": "Lütfen giriş yapmadan önce e-posta adresinizi doğrulayın."}), 403
+
+    # Şifre kontrolü (Frontend'den gelen şifre ile DB'deki şifrelenmiş (hash) şifreyi karşılaştır)
+    if bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
+        
+        # Giriş başarılıysa frontend'e kullanıcı bilgilerini gönder (Şifre HARİÇ!)
+        user_data = {
+            "id": str(user['_id']),
+            "name": user.get('name'),
+            "surname": user.get('surname'),
+            "email": user.get('email'),
+            "phone": user.get('phone'),
+            "address": user.get('address')
+        }
+        return jsonify({"message": "Giriş başarılı!", "user": user_data}), 200
+    else:
+        return jsonify({"error": "Şifre hatalı."}), 401
+
 
 # ============ PYDANTIC MODELLER ============
 

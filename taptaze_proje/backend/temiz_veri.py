@@ -1,22 +1,49 @@
 import pymongo
+import os
+from dotenv import load_dotenv
 
-# AYARLAR (Burası Doğru)
-IP_ADRESI = "192.168.1.161"
-PORT = "8000"
-BASE_URL = f"http://{IP_ADRESI}:{PORT}/static"
+# .env dosyasındaki MONGO_URL ve DB_NAME bilgilerini çekiyoruz
+load_dotenv()
 
-# 1. VERİTABANI BAĞLANTISI
-client = pymongo.MongoClient("mongodb://localhost:27017/")
-db = client["test_database"] 
+# --- AYARLAR ---
+# Resimler için Render linkini kullanmalısın ki internetten çekebilsin
+RENDER_URL = "https://taptaze-backend.onrender.com"
+BASE_URL = f"{RENDER_URL}/static"
 
-# 2. TEMİZLİK
+# --- 1. BULUT VERİTABANI BAĞLANTISI (DÜZELTİLDİ) ---
+# Bilgisayarındaki localhost'u değil, .env içindeki Atlas linkini kullanıyoruz
+MONGO_URI = os.getenv("MONGO_URL")
+DB_NAME = os.getenv("DB_NAME", "TaptazeDB")
+
+client = pymongo.MongoClient(MONGO_URI)
+db = client[DB_NAME]
+
+# --- 6. ADMİN KULLANICISI OLUŞTURMA (BCRYPT İLE) ---
+import bcrypt
+
+admin_password_plain = "123"  # Değiştirmek istersen buradan yapabilirsin
+hashed_pw = bcrypt.hashpw(admin_password_plain.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+print(f"🔐 Yönetici şifresi (hashlenmiş): {hashed_pw}")
+admin_user = {
+    "full_name": "Talha Ozcan1",
+    "email": "talha1@taptaze.com",  # Buraya kendi mailini yazabilirsin
+    "username": "admin1",           # server.py login için username kullanıyor
+    "password": hashed_pw,
+    "role": "admin"
+}
+
+# Eğer şifreleme kullanıyorsan server.py üzerinden bir kez kayıt olup 
+# Atlas'tan rolünü admin yapmanı öneririm.
+db.users.insert_one(admin_user)
+print("👑 Yönetici hesabı oluşturuldu: talha@taptaze.com / 123")
+
+# --- 2. TEMİZLİK ---
 db.products.delete_many({})
 db.categories.delete_many({})
 db.orders.delete_many({}) 
-print("🧹 Eski veriler temizlendi, dükkan boşaltıldı...")
+print(f"🧹 {DB_NAME} veritabanı temizlendi...")
 
-# 3. KATEGORİ EKLEME 
-# (Burada da BASE_URL kullanmalıyız. Eğer kapak foton yoksa şimdilik boş bırakabilirsin ama doğrusu budur)
+# --- 3. KATEGORİ EKLEME ---
 cat_sebze = db.categories.insert_one({
     "name": "Sebzeler",
     "image": f"{BASE_URL}/sebze.jpeg" 
@@ -34,10 +61,8 @@ cat_salata = db.categories.insert_one({
 
 print("✅ Kategoriler eklendi.")
 
-# 4. ÜRÜN LİSTESİ (DÜZELTİLDİ: Artık senin bilgisayarından çekecek)
-# ---------------------------------------------------------
+# --- 4. ÜRÜN LİSTESİ ---
 products = [
-    # --- SEBZELER ---
     {
         "name": "Domates",
         "category_id": str(cat_sebze),
@@ -45,7 +70,7 @@ products = [
         "unit_type": "KG",
         "stock": 100,
         "description": "Taze yerli salkım domates",
-        "image": f"{BASE_URL}/domates.jpeg"  # <--- BAK BURAYI DEĞİŞTİRDİM
+        "image": f"{BASE_URL}/domates.jpeg"
     },
     {
         "name": "Patates",
@@ -74,8 +99,6 @@ products = [
         "description": "Dolmalık çarliston biber",
         "image": f"{BASE_URL}/biber.jpeg"
     },
-
-    # --- SALATA MALZEMELERİ ---
     {
         "name": "Salatalık",
         "category_id": str(cat_salata),
@@ -94,26 +117,6 @@ products = [
         "description": "Kıvırcık marul",
         "image": f"{BASE_URL}/marul.jpeg"
     },
-    {
-        "name": "Roka",
-        "category_id": str(cat_salata),
-        "price": 8.0,
-        "unit_type": "DEMET",
-        "stock": 50,
-        "description": "Taze günlük roka",
-        "image": f"{BASE_URL}/roka.jpeg"
-    },
-    {
-        "name": "Maydanoz",
-        "category_id": str(cat_salata),
-        "price": 5.0,
-        "unit_type": "DEMET",
-        "stock": 50,
-        "description": "Mis kokulu maydanoz",
-        "image": f"{BASE_URL}/maydanoz.jpeg"
-    },
-
-    # --- MEYVELER ---
     {
         "name": "Kivi",
         "category_id": str(cat_meyve),
@@ -140,27 +143,10 @@ products = [
         "stock": 120,
         "description": "İthal muz",
         "image": f"{BASE_URL}/muz.jpeg"
-    },
-    {
-        "name": "Portakal",
-        "category_id": str(cat_meyve),
-        "price": 22.0,
-        "unit_type": "KG",
-        "stock": 100,
-        "description": "Sulu Washington portakalı",
-        "image": f"{BASE_URL}/portakal.jpeg"
-    },
-    {
-        "name": "Mandalina",
-        "category_id": str(cat_meyve),
-        "price": 18.0,
-        "unit_type": "KG",
-        "stock": 110,
-        "description": "Çekirdeksiz mandalina",
-        "image": f"{BASE_URL}/mandalina.jpeg"
     }
 ]
 
-# 5. KAYDETME İŞLEMİ
+# --- 5. KAYDETME İŞLEMİ ---
 db.products.insert_many(products)
-print(f"🚀 Harika! Bütün ürünler yüklendi. Resimler {BASE_URL} adresinden çekiliyor.")
+print(f"🚀 Başarılı! Ürünler {DB_NAME} veritabanına (Atlas) yüklendi.")
+print(f"📷 Resimler {BASE_URL} üzerinden aranacak.")
