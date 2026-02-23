@@ -63,6 +63,7 @@ def serialize_doc(doc):
         del doc["_id"]
     return doc
 
+# --- MAİL FONKSİYONUNU TLS (587) İLE GÜNCELLE ---
 def send_verification_email(user_email, code):
     sender_email = os.getenv("EMAIL_USER")
     sender_password = os.getenv("EMAIL_PASS")
@@ -73,38 +74,38 @@ def send_verification_email(user_email, code):
     msg['To'] = user_email
 
     try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, user_email, msg.as_string())
+        # Port 465 yerine 587 (TLS) kullanıyoruz, Render bunu daha kolay kabul eder.
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls() 
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, user_email, msg.as_string())
+        server.quit()
         return True
     except Exception as e:
         print(f"Mail hatası: {e}")
         return False
 
-# ============ KULLANICI (AUTH) ENDPOINTS ============
+# --- REGISTER FONKSİYONUNU GERÇEK HALİNE GETİR ---
 @api_router.post("/register")
 async def register(user: UserRegister):
-    # 1. Kullanıcı var mı kontrol et
     existing = await db.users.find_one({"email": user.email})
     if existing:
         raise HTTPException(status_code=400, detail="Bu e-posta zaten kayıtlı.")
     
-    # 2. Şifreyi hashle
     hashed_pw = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt())
     
-    # 3. TEST İÇİN SABİT KOD (Mail hatasını bypass etmek için)
-    v_code = "123456" 
+    # 123456'yı sildik, yerine yine rastgele kod getirdik
+    v_code = str(random.randint(100000, 999999))
     
     new_user = user.dict()
     new_user["password"] = hashed_pw.decode('utf-8')
     new_user["is_verified"] = False
     new_user["verification_code"] = v_code
     
-    # 4. Veritabanına kaydet
     await db.users.insert_one(new_user)
     
-    # 5. MAİL GÖNDERİMİNİ DEVRE DIŞI BIRAKTIK (Hata almamak için)
-    # send_verification_email(user.email, v_code) 
+    # Mail gönderme satırını tekrar aktif ettik
+    send_verification_email(user.email, v_code)
     
     return {"message": "Doğrulama kodu gönderildi!"}
 
