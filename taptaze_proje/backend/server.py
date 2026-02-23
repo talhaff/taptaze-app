@@ -14,6 +14,7 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 from fastapi import BackgroundTasks
+import requests
 
 # --- AYARLAR VE BAĞLANTILAR ---
 ROOT_DIR = Path(__file__).parent
@@ -66,24 +67,32 @@ def serialize_doc(doc):
 
 # --- MAİL FONKSİYONUNU TLS (587) İLE GÜNCELLE ---
 def send_verification_email(user_email, code):
-    sender_email = os.getenv("EMAIL_USER")
-    sender_password = os.getenv("EMAIL_PASS")
+    api_key = os.getenv("BREVO_API_KEY")
+    sender_email = os.getenv("EMAIL_USER") # Render'daki e-postanı gönderici olarak alır
     
-    msg = MIMEText(f"Taptaze'ye Hoş Geldin! Hesabını doğrulamak için kodun: {code}")
-    msg['Subject'] = 'Taptaze - E-posta Doğrulama'
-    msg['From'] = f"Taptaze <{sender_email}>"
-    msg['To'] = user_email
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    }
+    
+    # Mailin içeriğini ve kime gideceğini JSON olarak hazırlıyoruz
+    payload = {
+        "sender": {"name": "Taptaze App", "email": sender_email},
+        "to": [{"email": user_email}],
+        "subject": "Taptaze - E-posta Doğrulama",
+        "htmlContent": f"<html><body><h3>Taptaze'ye Hoş Geldin!</h3><p>Hesabını doğrulamak için doğrulama kodun: <strong>{code}</strong></p></body></html>"
+    }
 
     try:
-        # Port 465 yerine 587 (TLS) kullanıyoruz, Render bunu daha kolay kabul eder.
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls() 
-        server.login(sender_email, sender_password)
-        server.sendmail(sender_email, user_email, msg.as_string())
-        server.quit()
+        # Port engellerini aşan, doğrudan HTTPS üzerinden atılan o sihirli istek:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status() # Eğer Brevo'dan hata dönerse yakalar
+        print(f"Başarılı: {user_email} adresine mail gönderildi!")
         return True
     except Exception as e:
-        print(f"Mail hatası: {e}")
+        print(f"Brevo API Hatası: {e}")
         return False
 
 # --- REGISTER FONKSİYONUNU GERÇEK HALİNE GETİR ---
