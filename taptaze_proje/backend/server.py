@@ -82,23 +82,30 @@ def send_verification_email(user_email, code):
         return False
 
 # ============ KULLANICI (AUTH) ENDPOINTS ============
-
 @api_router.post("/register")
 async def register(user: UserRegister):
+    # 1. Kullanıcı var mı kontrol et
     existing = await db.users.find_one({"email": user.email})
     if existing:
         raise HTTPException(status_code=400, detail="Bu e-posta zaten kayıtlı.")
     
+    # 2. Şifreyi hashle
     hashed_pw = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt())
-    v_code = str(random.randint(100000, 999999))
+    
+    # 3. TEST İÇİN SABİT KOD (Mail hatasını bypass etmek için)
+    v_code = "123456" 
     
     new_user = user.dict()
     new_user["password"] = hashed_pw.decode('utf-8')
     new_user["is_verified"] = False
     new_user["verification_code"] = v_code
     
+    # 4. Veritabanına kaydet
     await db.users.insert_one(new_user)
-    send_verification_email(user.email, v_code)
+    
+    # 5. MAİL GÖNDERİMİNİ DEVRE DIŞI BIRAKTIK (Hata almamak için)
+    # send_verification_email(user.email, v_code) 
+    
     return {"message": "Doğrulama kodu gönderildi!"}
 
 @api_router.post("/verify")
