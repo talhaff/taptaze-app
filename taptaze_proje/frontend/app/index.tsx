@@ -5,10 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function Index() {
   
+  // app/index.tsx içindeki useEffect kısmını şununla değiştir:
+
   useEffect(() => {
-    // Uygulama açılır açılmaz 1.5 saniye logoyu göster, sonra Ana Sayfaya at
+    // Uygulama açılır açılmaz 1.5 saniye logoyu göster, sonra GİRİŞ EKRANINA at
     const timer = setTimeout(() => {
-      router.replace('/(tabs)/home');
+      // BURAYI DEĞİŞTİRDİK: Artık ana sayfaya değil, login sayfasına gidiyoruz.
+      // @ts-ignore: TypeScript hata verirse susturmak için
+      router.replace('/login' as any); 
     }, 1500);
 
     return () => clearTimeout(timer);
