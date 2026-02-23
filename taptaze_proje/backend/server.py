@@ -2,7 +2,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
@@ -12,7 +12,6 @@ import os
 import bcrypt
 import random
 import smtplib
-import logging
 from email.mime.text import MIMEText
 
 # --- AYARLAR VE BAĞLANTILAR ---
@@ -28,7 +27,7 @@ db = client[os.environ.get('DB_NAME', 'TaptazeDB')]
 
 app = FastAPI()
 
-# CORS Ayarları (Telefonunun bağlanması için şart)
+# CORS Ayarları
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -37,12 +36,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Resim klasörünü dışa aç
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 api_router = APIRouter(prefix="/api")
 
-# --- YARDIMCI MODELLER VE FONKSİYONLAR ---
+# --- MODELLER VE YARDIMCI FONKSİYONLAR ---
 class UserRegister(BaseModel):
     name: str
     surname: str
@@ -134,64 +132,7 @@ async def login(data: UserLogin):
         }
     raise HTTPException(status_code=401, detail="Şifre hatalı.")
 
-# ============ MEVCUT ÜRÜN VE SİPARİŞ MANTIĞI ============
-
-class Category(BaseModel):
-    id: Optional[str] = None
-    name: str
-    image: Optional[str] = None
-
-class Product(BaseModel):
-    id: str
-    name: str
-    category_id: str
-    category_name: Optional[str] = None
-    price: float
-    unit_type: str
-    stock: int
-    image: Optional[str] = None
-    description: Optional[str] = None
-
-class OrderItem(BaseModel):
-    product_id: str
-    product_name: str
-    quantity: float
-    price: float
-    unit_type: str
-
-class OrderCreate(BaseModel):
-    customer_name: str
-    customer_phone: str
-    delivery_address: str
-    items: List[OrderItem]
-    total_amount: float
-
-@api_router.get("/categories", response_model=List[Category])
-async def get_categories():
-    categories = await db.categories.find().to_list(100)
-    return [Category(**serialize_doc(cat)) for cat in categories]
-
-@api_router.get("/products", response_model=List[Product])
-async def get_products(category_id: Optional[str] = None):
-    query = {"category_id": category_id} if category_id else {}
-    products = await db.products.find(query).to_list(1000)
-    return [Product(**serialize_doc(p)) for p in products]
-
-@api_router.post("/orders")
-async def create_order(order: OrderCreate):
-    order_dict = order.dict()
-    order_dict["status"] = "Beklemede"
-    order_dict["created_at"] = datetime.utcnow()
-    result = await db.orders.insert_one(order_dict)
-    return {"id": str(result.inserted_id), "status": "Başarılı"}
-
-# --- ADMİN PANELİ ---
-@api_router.get("/admin/stats")
-async def get_admin_stats():
-    total_orders = await db.orders.count_documents({})
-    total_products = await db.products.count_documents({})
-    return {"total_orders": total_orders, "total_products": total_products}
-
+# ============ ROUTER'I DAHİL ET ============
 app.include_router(api_router)
 
 if __name__ == "__main__":
