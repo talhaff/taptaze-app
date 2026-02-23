@@ -13,6 +13,7 @@ import bcrypt
 import random
 import smtplib
 from email.mime.text import MIMEText
+from fastapi import BackgroundTasks
 
 # --- AYARLAR VE BAĞLANTILAR ---
 ROOT_DIR = Path(__file__).parent
@@ -86,15 +87,14 @@ def send_verification_email(user_email, code):
         return False
 
 # --- REGISTER FONKSİYONUNU GERÇEK HALİNE GETİR ---
+
 @api_router.post("/register")
-async def register(user: UserRegister):
+async def register(user: UserRegister, background_tasks: BackgroundTasks): # background_tasks ekledik
     existing = await db.users.find_one({"email": user.email})
     if existing:
         raise HTTPException(status_code=400, detail="Bu e-posta zaten kayıtlı.")
     
     hashed_pw = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt())
-    
-    # 123456'yı sildik, yerine yine rastgele kod getirdik
     v_code = str(random.randint(100000, 999999))
     
     new_user = user.dict()
@@ -104,8 +104,8 @@ async def register(user: UserRegister):
     
     await db.users.insert_one(new_user)
     
-    # Mail gönderme satırını tekrar aktif ettik
-    send_verification_email(user.email, v_code)
+    # KRİTİK DEĞİŞİKLİK: Maili arka planda gönder, kullanıcıyı bekletme!
+    background_tasks.add_task(send_verification_email, user.email, v_code)
     
     return {"message": "Doğrulama kodu gönderildi!"}
 
