@@ -149,6 +149,70 @@ async def login(data: UserLogin):
         }
     raise HTTPException(status_code=401, detail="Şifre hatalı.")
 
+@api_router.get("/products")
+async def get_products():
+    products = await db.products.find().to_list(length=100)
+    return {"products": products}
+
+
+
+class Category(BaseModel):
+    id: Optional[str] = None
+    name: str
+    image: Optional[str] = None
+
+class Product(BaseModel):
+    id: str
+    name: str
+    category_id: str
+    category_name: Optional[str] = None
+    price: float
+    unit_type: str
+    stock: int
+    image: Optional[str] = None
+    description: Optional[str] = None
+
+class OrderItem(BaseModel):
+    product_id: str
+    product_name: str
+    quantity: float
+    price: float
+    unit_type: str
+
+class OrderCreate(BaseModel):
+    customer_name: str
+    customer_phone: str
+    delivery_address: str
+    items: List[OrderItem]
+    total_amount: float
+
+@api_router.get("/categories", response_model=List[Category])
+async def get_categories():
+    categories = await db.categories.find().to_list(100)
+    return [Category(**serialize_doc(cat)) for cat in categories]
+
+@api_router.get("/products", response_model=List[Product])
+async def get_products(category_id: Optional[str] = None):
+    query = {"category_id": category_id} if category_id else {}
+    products = await db.products.find(query).to_list(1000)
+    return [Product(**serialize_doc(p)) for p in products]
+
+@api_router.post("/orders")
+async def create_order(order: OrderCreate):
+    order_dict = order.dict()
+    order_dict["status"] = "Beklemede"
+    order_dict["created_at"] = datetime.utcnow()
+    result = await db.orders.insert_one(order_dict)
+    return {"id": str(result.inserted_id), "status": "Başarılı"}
+
+# --- ADMİN PANELİ ---
+@api_router.get("/admin/stats")
+async def get_admin_stats():
+    total_orders = await db.orders.count_documents({})
+    total_products = await db.products.count_documents({})
+    return {"total_orders": total_orders, "total_products": total_products}
+
+
 # ============ ROUTER'I DAHİL ET ============
 app.include_router(api_router)
 
